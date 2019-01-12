@@ -44,7 +44,7 @@ SECTION .bss
 
 SECTION .data
     
-    _malloc_chunk_size equ 4096
+    _malloc_minimum_chunk_size equ 4096
     _malloc_msg_failed db "Malloc failed.", 10, 0
 
 SECTION .text
@@ -132,15 +132,20 @@ malloc:
     ; space required = space requested + chunk_header_size.
     add qword rdi, _malloc_chunk_header_size
     add qword rdi, [_malloc_heap_start]
+    ; if space required is less than minimum chunk size, alloc chunk size.
+    cmp rdi, _malloc_minimum_chunk_size
+    jg .call_brk
+    mov rdi, _malloc_minimum_chunk_size
+.call_brk
     ; use BRK to allocate more heap space.
     mov rax, syscall_brk
     syscall 
-    pop rdi ; restore original requested memory size to rdi.
     ; check for failure.
     cmp rax, [_malloc_heap_start]
     je .return_null
     ; our heap size is now bigger by requested space.
     add qword [_malloc_heap_size], rdi
+    pop rdi ; restore original requested memory size to rdi.
 .create_chunk:
     ; rax points to the previous chunk
     mov rax, [_malloc_mem_cursor]  
@@ -176,5 +181,16 @@ malloc:
     pop rdx
     pop rcx
     ret
+
+; free: releases memory allocated with malloc.
+;
+; arguments:
+;     rdi : pointer to address of memory to be freed.
+;
+free:
+.find_block_to_free:
+; @todo
+.mark_block_as_free:
+; @todo
 
 %endif
