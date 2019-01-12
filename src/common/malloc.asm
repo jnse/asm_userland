@@ -45,7 +45,8 @@ SECTION .bss
 SECTION .data
     
     _malloc_minimum_chunk_size equ 4096
-    _malloc_msg_failed db "Malloc failed.", 10, 0
+    _malloc_msg_failed db "Malloc failed.", 0
+    _free_msg_no_block db "Free: could not find block to release.", 0
 
 SECTION .text
 
@@ -98,7 +99,7 @@ malloc:
     mov qword rcx, [_malloc_heap_start] ; use rcx as our iterator.
 .find_free_chunk_loop:
     ; is our iterator is past the cursor?
-    cmp rcx, _malloc_mem_cursor
+    cmp rcx, [_malloc_mem_cursor]
     jg .check_free_heap_space ; then move on to create a new chunk.
     ; is current chunk free?
     mov rax, [rcx + _malloc_chunk_header.free]
@@ -136,15 +137,17 @@ malloc:
     cmp rdi, _malloc_minimum_chunk_size
     jg .call_brk
     mov rdi, _malloc_minimum_chunk_size
-.call_brk
+.call_brk:
     ; use BRK to allocate more heap space.
     mov rax, syscall_brk
     syscall 
     ; check for failure.
     cmp rax, [_malloc_heap_start]
     je .return_null
-    ; our heap size is now bigger by requested space.
-    add qword [_malloc_heap_size], rdi
+    ; new break is returned in rax, subract, the heap start from it, and that
+    ; will be our new heap size.
+    sub rax, [_malloc_heap_start]
+    mov qword [_malloc_heap_size], rax
     pop rdi ; restore original requested memory size to rdi.
 .create_chunk:
     ; rax points to the previous chunk
@@ -167,7 +170,7 @@ malloc:
     mov qword [rdx + _malloc_chunk_header.bytes], rdi
     mov qword [rdx + _malloc_chunk_header.p_data], rcx
     mov byte [rdx + _malloc_chunk_header.free], 0
-    ; move memory cursor to start of new chunk data.
+    ; move memory cursor to start of new chunk.
     mov qword [_malloc_mem_cursor], rdx
     ; save result (ptr to data) in rax.
     mov rax, rcx
@@ -188,9 +191,41 @@ malloc:
 ;     rdi : pointer to address of memory to be freed.
 ;
 free:
-.find_block_to_free:
-; @todo
-.mark_block_as_free:
-; @todo
+    ; save clobbered registers.
+    push rcx
+    push rax
+.find_chunk_to_free:
+    mov qword rcx, [_malloc_heap_start] ; use rcx as our iterator.
+.find_chunk_to_free_loop:
+    ; is our iterator is past the cursor?
+    cmp rcx, [_malloc_mem_cursor]
+    jg .block_not_found_error
+    ; Is this our chunk?
+    mov rax, [rcx + _malloc_chunk_header.p_data]
+
+    call debug
+    push rax
+    mov rax, rdi
+    call debug
+    pop rax
+
+    cmp rax, rdi
+    je .mark_chunk_as_free
+    ; no? move rcx ptr to the start of the next chunk.
+    mov rax, [rcx + _malloc_chunk_header.bytes]
+    add qword rcx, _malloc_chunk_header_size
+    add qword rcx, rax
+    jmp .find_chunk_to_free_loop ; keep looking.    
+.mark_chunk_as_free:
+    ; when we get here, rcx points to the chunk we're looking to free.
+    mov byte [rcx + _malloc_chunk_header.free], 1 ; do the deed.
+.block_not_found_error:
+    mov rdi, _free_msg_no_block
+    call println
+.done:
+    ; restore clobbered registers and return.
+    pop rax
+    pop rcx
+    ret
 
 %endif
