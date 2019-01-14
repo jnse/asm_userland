@@ -32,6 +32,8 @@ SECTION .bss
     _malloc_heap_size: resq 1  ; stores heap size.
     _malloc_heap_start: resq 1 ; stores heap start address.
     _malloc_mem_cursor: resq 1 ; always points to the chunk at heap edge.
+    _malloc_debug_buffer: resq 1
+    _malloc_first: resb 1 ; first chunk flag
 
     ; malloc chunk header fields
     struc _malloc_chunk_header
@@ -46,7 +48,12 @@ SECTION .data
     
     _malloc_minimum_chunk_size equ 4096
     _malloc_msg_failed db "Malloc failed.", 0
-    _free_msg_no_block db "Free: could not find block to release.", 0
+    _free_msg_no_chunk db "Free: could not find chunk to release.", 0
+    
+    _malloc_msg_debug_next_chunk db "Chunk at : ", 0
+    _malloc_msg_debug_bytes db  "    bytes  : ", 0
+    _malloc_msg_debug_p_data db "    pdata  : ", 0
+    _malloc_msg_debug_free db   "    free   : ", 0
 
 SECTION .text
 
@@ -65,21 +72,91 @@ init_memory:
     mov qword [_malloc_mem_cursor], rax
     ; Init heap size.
     mov qword [_malloc_heap_size], 0
+    ; Init first chunk flag.
+    mov qword [_malloc_first], 1
     ; restore registers.
     pop rdi
     pop rax
     ret
 
-; print value in rdi
-debug:
+; dump all fields of a malloc chunk.
+;
+; arguments:
+;     rdi : pointer to chunk
+;
+malloc_debug_fields:
+    push rcx
     push rdi
+    push rax
+    mov rcx, rdi
+    ; print chunk address
+    push rcx
+    mov qword rdi, _malloc_msg_debug_next_chunk
+    call print
+    mov rdi, _malloc_debug_buffer
+    pop rsi
     push rsi
-    mov rsi, rdi
-    mov rdi, debugstr
     call itoa_hex
     call println
-    pop rsi
+    ; print chunk bytes
+    mov qword rdi, _malloc_msg_debug_bytes
+    call print
+    mov rdi, _malloc_debug_buffer
+    pop rcx
+    mov qword rsi, [rcx + _malloc_chunk_header.bytes]
+    push rcx
+    call itoa
+    call println
+    ; print chunk data ptr
+    mov qword rdi, _malloc_msg_debug_p_data
+    call print
+    mov rdi, _malloc_debug_buffer
+    pop rcx
+    push rcx
+    mov qword rsi, [rcx + _malloc_chunk_header.p_data]
+    call itoa_hex
+    call println
+    ; print free
+    mov qword rdi, _malloc_msg_debug_free
+    call print
+    mov rdi, _malloc_debug_buffer
+    pop rcx
+    mov qword rsi, [rcx + _malloc_chunk_header.free]
+    call itoa_hex
+    call println
+    pop rax
     pop rdi
+    pop rcx
+    ret
+
+; dump all chunks.
+malloc_debug:
+    push rcx
+    push rsi
+    push rdi
+    push rax
+    mov qword rcx, [_malloc_heap_size]
+    test rcx, rcx
+    jz .done 
+    mov qword rcx, [_malloc_heap_start]
+.debug_loop:
+    mov rdi, rcx
+    push rcx
+    call malloc_debug_fields
+    pop rcx
+    ; move to next chunk
+    add rcx, [rcx + _malloc_chunk_header.bytes]
+    add rcx, _malloc_chunk_header_size
+.next:
+    ; loop
+    cmp rcx, [_malloc_mem_cursor]
+    jg .done
+    jmp .debug_loop
+.done:
+    pop rax
+    pop rdi
+    pop rsi
+    pop rcx
     ret
 
 ; malloc : allocates memory.
@@ -113,16 +190,21 @@ malloc:
     mov rax, [rcx + _malloc_chunk_header.bytes]
     add qword rcx, _malloc_chunk_header_size
     add qword rcx, rax
-    jmp .find_free_chunk_loop ; keep looking.
+    jmp .next_chunk
 .found_free_chunk:
     ; now that we found a free chunk, we should check if it's big enough.
-    cmp rax, rdi
-    jl .find_free_chunk_loop ; too small, keep looking.
+    cmp qword [rcx + _malloc_chunk_header.bytes], rdi
+    jl .next_chunk ; too small, keep looking.
 .found_good_chunk:
     ; we found a usable chunk, mark it as used.
     mov byte [rcx + _malloc_chunk_header.free], 0
     mov qword rax, [rcx + _malloc_chunk_header.p_data]
     jmp .done
+.next_chunk:
+    mov rax, [rcx + _malloc_chunk_header.bytes]
+    add qword rcx, _malloc_chunk_header_size
+    add qword rcx, rax
+    jmp .find_free_chunk_loop 
 .check_free_heap_space:
     ; heap_size - (memory requested + chunk_header_size) < 0 ?
     mov qword rax, [_malloc_heap_size]
@@ -156,9 +238,8 @@ malloc:
 .create_chunk:
     ; rax points to the previous chunk
     mov rax, [_malloc_mem_cursor]  
-    ; but wait, are we the first chunk?
-    cmp rax, [_malloc_heap_start]
-    jle .first_chunk
+    cmp byte [_malloc_first], 1
+    je .first_chunk
     ; rdx points to our to-be-created chunk.
     mov rdx, rax
     add qword rdx, [rax+_malloc_chunk_header.bytes]
@@ -166,6 +247,7 @@ malloc:
     jmp .populate_chunk_fields
 .first_chunk:
     mov rdx, [_malloc_heap_start]
+    mov byte [_malloc_first], 0
 .populate_chunk_fields:
     ; rcx points to the new chunk data.
     mov rcx, rdx
@@ -202,12 +284,12 @@ free:
     ; skip if heap size is 0
     mov qword rcx, [_malloc_heap_size]
     test rcx, rcx
-    jz .block_not_found_error
+    jz .chunk_not_found_error
     mov qword rcx, [_malloc_heap_start] ; use rcx as our iterator.
 .find_chunk_to_free_loop:
     ; is our iterator is past the cursor?
     cmp rcx, [_malloc_mem_cursor]
-    jg .block_not_found_error
+    jg .chunk_not_found_error
     ; Is this our chunk?
     mov rax, [rcx + _malloc_chunk_header.p_data]
     cmp rax, rdi
@@ -221,8 +303,8 @@ free:
     ; when we get here, rcx points to the chunk we're looking to free.
     mov byte [rcx + _malloc_chunk_header.free], 1 ; do the deed.
     jmp .done
-.block_not_found_error:
-    mov rdi, _free_msg_no_block
+.chunk_not_found_error:
+    mov rdi, _free_msg_no_chunk
     call println
 .done:
     ; restore clobbered registers and return.

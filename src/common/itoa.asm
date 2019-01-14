@@ -21,6 +21,7 @@ itoa:
    push rcx
    push rbx
    push rax
+   push rdi
    ; set up initial state.
    mov rax, rsi      ; copy arg
    mov rbx, 10       ; base-10 (decimal)
@@ -34,13 +35,16 @@ itoa:
    jne ._next_divide
 ._next_digit:
    pop rax           ; else pop recent remainder
+   cmp al, 10
    add al, '0'       ; and convert to a numeral
+._store_digit:
    stosb             ; store to ptr (rdi)
    loop ._next_digit ; next digit.
    ; null-terminate result.
    xor al, al
    stosb
    ; restore registers
+   pop rdi
    pop rax
    pop rbx
    pop rcx
