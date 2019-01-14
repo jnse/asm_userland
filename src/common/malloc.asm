@@ -96,6 +96,10 @@ malloc:
     test rdi, rdi
     jz .return_null
 .find_free_chunk:
+    ; skip if heap size is 0.
+    mov qword rcx, [_malloc_heap_size]
+    test rcx, rcx
+    jz .check_free_heap_space
     mov qword rcx, [_malloc_heap_start] ; use rcx as our iterator.
 .find_free_chunk_loop:
     ; is our iterator is past the cursor?
@@ -195,6 +199,10 @@ free:
     push rcx
     push rax
 .find_chunk_to_free:
+    ; skip if heap size is 0
+    mov qword rcx, [_malloc_heap_size]
+    test rcx, rcx
+    jz .block_not_found_error
     mov qword rcx, [_malloc_heap_start] ; use rcx as our iterator.
 .find_chunk_to_free_loop:
     ; is our iterator is past the cursor?
@@ -202,13 +210,6 @@ free:
     jg .block_not_found_error
     ; Is this our chunk?
     mov rax, [rcx + _malloc_chunk_header.p_data]
-
-    call debug
-    push rax
-    mov rax, rdi
-    call debug
-    pop rax
-
     cmp rax, rdi
     je .mark_chunk_as_free
     ; no? move rcx ptr to the start of the next chunk.
@@ -219,6 +220,7 @@ free:
 .mark_chunk_as_free:
     ; when we get here, rcx points to the chunk we're looking to free.
     mov byte [rcx + _malloc_chunk_header.free], 1 ; do the deed.
+    jmp .done
 .block_not_found_error:
     mov rdi, _free_msg_no_block
     call println

@@ -40,10 +40,10 @@ _start:
     call init_memory
 
     ; print out the initial heap size
-    mov rdi, mystr
-    mov rsi, [_malloc_heap_size]
-    call itoa_hex
-    call println
+    ;mov rdi, mystr
+    ;mov rsi, [_malloc_heap_size]
+    ;call itoa_hex
+    ;call println
 
     ; allocate a bunch of memory
     mov rdi, 0xffff
