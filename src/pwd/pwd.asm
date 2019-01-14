@@ -87,7 +87,6 @@ _start:
     mov rdi, line
     call println
 
-
     ; exit 0
     xor rdi, rdi
     call exit
