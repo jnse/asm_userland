@@ -17,7 +17,8 @@ add_compile_options(-g -I${CMAKE_SOURCE_DIR}/include/ -I${CMAKE_SOURCE_DIR}/src/
 set(SYSCALL_FILE "${CMAKE_SOURCE_DIR}/include/syscalls.asm")
 add_custom_target(linux_syscalls ${CMAKE_SOURCE_DIR}/scripts/get_syscalls.sh ${SYSCALL_FILE})
 
-include("${CMAKE_SOURCE_DIR}/src/true/config.cmake")
-include("${CMAKE_SOURCE_DIR}/src/false/config.cmake")
-include("${CMAKE_SOURCE_DIR}/src/pwd/config.cmake")
-include("${CMAKE_SOURCE_DIR}/src/env/config.cmake")
+add_subdirectory(true)
+add_subdirectory(false)
+add_subdirectory(pwd)
+add_subdirectory(env)
+
