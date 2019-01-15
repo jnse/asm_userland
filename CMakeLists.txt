@@ -23,4 +23,4 @@ add_subdirectory(src)
 add_subdirectory(tests)
 
 enable_testing()
-add_test(malloc_test tests/malloc)
+add_test(malloc_test tests/malloc_test)
