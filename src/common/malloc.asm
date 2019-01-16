@@ -36,6 +36,7 @@ SECTION .bss
     _malloc_first: resb 1           ; first chunk flag
     _malloc_last_free_cache: resq 1 ; Pointer to the last freed chunk.
     _malloc_last_free_size: resq 1  ; Pointer tot he last freed chunk's size.
+    _malloc_free_counter: resq 1    ; Counts number of available free chunks.
     ; malloc chunk header fields
     struc _malloc_chunk_header
       .bytes: resq 1                ; size of chunk in bytes.
@@ -78,6 +79,7 @@ init_memory:
     ; Init freed chunk cache.
     mov qword [_malloc_last_free_cache], 0
     mov qword [_malloc_last_free_size], 0
+    mov qword [_malloc_free_counter], 0
     ; restore registers.
     pop rdi
     pop rax
@@ -190,12 +192,15 @@ malloc:
     ; consume cache
     mov qword [_malloc_last_free_cache], 0
     mov qword [_malloc_last_free_size], 0
+    dec qword [_malloc_free_counter]
     jmp .done
 .find_free_chunk:
     ; skip if heap size is 0.
-    mov qword rcx, [_malloc_heap_size]
-    test rcx, rcx
-    jz .check_free_heap_space
+    cmp qword [_malloc_heap_size], 0
+    je .check_free_heap_space
+    ; skip if there are no free chunks.
+    cmp qword [_malloc_free_counter], 0
+    je .check_free_heap_space
     mov qword rcx, [_malloc_heap_start] ; use rcx as our iterator.
 .find_free_chunk_loop:
     ; is our iterator is past the cursor?
@@ -218,6 +223,13 @@ malloc:
     ; we found a usable chunk, mark it as used.
     mov byte [rcx + _malloc_chunk_header.free], 0
     mov qword rax, [rcx + _malloc_chunk_header.p_data]
+    ; if it happens to match our cache, invalidate it.
+    cmp qword rcx, [_malloc_last_free_cache]
+    jne .is_not_cached
+    mov qword [_malloc_last_free_cache], 0
+    mov qword [_malloc_last_free_size], 0 
+.is_not_cached:
+    dec qword [_malloc_free_counter]
     jmp .done
 .next_chunk:
     mov rax, [rcx + _malloc_chunk_header.bytes]
@@ -332,6 +344,8 @@ free:
     mov qword rdx, [rcx + _malloc_chunk_header.bytes]
     mov qword [_malloc_last_free_size], rdx
     pop rdx
+    ; increment free chunk counter.
+    inc qword [_malloc_free_counter]
     jmp .done
 .chunk_not_found_error:
     mov rdi, _free_msg_no_chunk

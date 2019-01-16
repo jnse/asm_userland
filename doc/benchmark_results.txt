@@ -18,14 +18,23 @@ real	1m0.332s
 user	1m0.326s
 sys	0m0.005s
 
----------------------------------------
-- asm_userland malloc                 -
----------------------------------------
+------------------------------------------
+- asm_userland malloc (added free cache) -
+------------------------------------------
 Same as above, but with keeping a cache to the last freed block,
 allowing instant block re-use if last freed block is the same size.
 
-real	0m6.149s
-user	0m6.143s
-sys	0m0.006s
+real	0m20.177s
+user	0m20.166s
+sys	0m0.009s
 
+--------------------------------------------
+- asm_userland malloc (added free counter) -
+--------------------------------------------
+Same as above, but added a free block counter, and skip
+looking for free blocks if there are none.
+
+real	0m6.653s
+user	0m6.642s
+sys	0m0.011s
 
