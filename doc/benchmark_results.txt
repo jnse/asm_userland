@@ -18,4 +18,14 @@ real	1m0.332s
 user	1m0.326s
 sys	0m0.005s
 
+---------------------------------------
+- asm_userland malloc                 -
+---------------------------------------
+Same as above, but with keeping a cache to the last freed block,
+allowing instant block re-use if last freed block is the same size.
+
+real	0m6.149s
+user	0m6.143s
+sys	0m0.006s
+
 

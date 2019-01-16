@@ -29,33 +29,32 @@ extern _end
 
 SECTION .bss
 
-    _malloc_heap_size: resq 1  ; stores heap size.
-    _malloc_heap_start: resq 1 ; stores heap start address.
-    _malloc_mem_cursor: resq 1 ; always points to the chunk at heap edge.
-    _malloc_debug_buffer: resq 1
-    _malloc_first: resb 1 ; first chunk flag
-
+    _malloc_heap_size: resq 1       ; stores heap size.
+    _malloc_heap_start: resq 1      ; stores heap start address.
+    _malloc_mem_cursor: resq 1      ; always points to the chunk at heap edge.
+    _malloc_debug_buffer: resq 1    ; itoa buffer for debugging.
+    _malloc_first: resb 1           ; first chunk flag
+    _malloc_last_free_cache: resq 1 ; Pointer to the last freed chunk.
+    _malloc_last_free_size: resq 1  ; Pointer tot he last freed chunk's size.
     ; malloc chunk header fields
     struc _malloc_chunk_header
-      .bytes: resq 1
-      .p_data: resq 1
-      .free: resb 1
+      .bytes: resq 1                ; size of chunk in bytes.
+      .p_data: resq 1               ; pointer to chunk data.
+      .free: resb 1                 ; chunk free flag.
     endstruc
 
-    debugstr: resb 22
-
 SECTION .data
-    
+   
+    ; allocate at least this many bytes (one page seems reasonable).
     _malloc_minimum_chunk_size equ 4096
+    ; error strings.
     _malloc_msg_failed db "Malloc failed.", 0
     _free_msg_no_chunk db "Free: could not find chunk to release.", 0
-    
+    ; debug strings.
     _malloc_msg_debug_next_chunk db "Chunk at : ", 0
     _malloc_msg_debug_bytes db  "    bytes  : ", 0
     _malloc_msg_debug_p_data db "    pdata  : ", 0
     _malloc_msg_debug_free db   "    free   : ", 0
-
-    _malloc_msg_grow db "Heap grown.", 0
 
 SECTION .text
 
@@ -76,6 +75,9 @@ init_memory:
     mov qword [_malloc_heap_size], 0
     ; Init first chunk flag.
     mov qword [_malloc_first], 1
+    ; Init freed chunk cache.
+    mov qword [_malloc_last_free_cache], 0
+    mov qword [_malloc_last_free_size], 0
     ; restore registers.
     pop rdi
     pop rax
@@ -174,6 +176,21 @@ malloc:
     ; allocating 0 bytes means don't do anything.
     test rdi, rdi
     jz .return_null
+.is_cache_usable:
+    ; if cache size is an exact match in size, use it!
+    cmp qword [_malloc_last_free_cache], 0
+    je .find_free_chunk
+    cmp qword [_malloc_last_free_size], rdi
+    jne .find_free_chunk
+.use_cache:
+    ; mark cached block as used, and return it.
+    mov qword [_malloc_last_free_cache + _malloc_chunk_header.free], 0
+    mov qword rcx, [_malloc_last_free_cache]
+    mov qword rax, [rcx + _malloc_chunk_header.p_data]
+    ; consume cache
+    mov qword [_malloc_last_free_cache], 0
+    mov qword [_malloc_last_free_size], 0
+    jmp .done
 .find_free_chunk:
     ; skip if heap size is 0.
     mov qword rcx, [_malloc_heap_size]
@@ -309,6 +326,12 @@ free:
 .mark_chunk_as_free:
     ; when we get here, rcx points to the chunk we're looking to free.
     mov byte [rcx + _malloc_chunk_header.free], 1 ; do the deed.
+    ; save a pointer to this chunk and it's size in case we can re-use it.
+    mov qword [_malloc_last_free_cache], rcx
+    push rdx
+    mov qword rdx, [rcx + _malloc_chunk_header.bytes]
+    mov qword [_malloc_last_free_size], rdx
+    pop rdx
     jmp .done
 .chunk_not_found_error:
     mov rdi, _free_msg_no_chunk
