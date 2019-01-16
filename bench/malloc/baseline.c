@@ -2,8 +2,8 @@
 
 int main(int argc, char** argv)
 {
-    void* pa = 0;
-    void* pb = 0;
+    int* pa = 0;
+    int* pb = 0;
     for (int i = 30000 ; i != 0 ; --i)
     {
         pa = malloc(20);

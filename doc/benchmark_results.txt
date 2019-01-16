@@ -1,0 +1,21 @@
+
+---------------------------------------
+- Baseline malloc test (glibc malloc) -
+---------------------------------------
+This is plain glibc malloc in C
+
+real	0m0.005s
+user	0m0.003s
+sys	0m0.001s
+
+
+---------------------------------------
+- asm_userland malloc (basic K&R)     -
+---------------------------------------
+This is using a plain, slow linear search for free blocks.
+
+real	1m0.332s
+user	1m0.326s
+sys	0m0.005s
+
+
