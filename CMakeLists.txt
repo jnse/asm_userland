@@ -16,11 +16,10 @@ if (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 endif (${CMAKE_SYSTEM_NAME} MATCHES "Linux")
 
 enable_language(ASM_NASM)
-add_compile_options(-g -I${CMAKE_SOURCE_DIR}/include/ -I${CMAKE_SOURCE_DIR}/src/common/)
-
 add_subdirectory(include)
 add_subdirectory(src)
 add_subdirectory(tests)
+add_subdirectory(bench)
 
 enable_testing()
 add_test(malloc_test tests/malloc_test)

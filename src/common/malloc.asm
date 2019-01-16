@@ -55,6 +55,8 @@ SECTION .data
     _malloc_msg_debug_p_data db "    pdata  : ", 0
     _malloc_msg_debug_free db   "    free   : ", 0
 
+    _malloc_msg_grow db "Heap grown.", 0
+
 SECTION .text
 
 %include "syscalls.asm"
@@ -206,27 +208,32 @@ malloc:
     add qword rcx, rax
     jmp .find_free_chunk_loop 
 .check_free_heap_space:
-    ; heap_size - (memory requested + chunk_header_size) < 0 ?
-    mov qword rax, [_malloc_heap_size]
-    push rdi ; save requested space because we'll be adding chunk header size.
-    add qword rdi, _malloc_chunk_header_size
-    sub rax, rdi ; should set overflow flag when going below zero.
-    pop rdi ; restore original requested memory size to rdi.
-    jc .alloc_heap_space ; if CF set by sub (shouldn't be cleared by pop)
+    ; rax = free memory = (heap_start+heap_size - cursor)
+    mov qword rax, [_malloc_heap_start]
+    add rax, [_malloc_heap_size]
+    sub rax, [_malloc_mem_cursor]
+    ; rax = left over mem = free memory - memory requested - chunk_header_size)
+    sub rax, rdi
+    jc .alloc_heap_space ; < 0 ?
+    sub rax, _malloc_chunk_header_size
+    jc .alloc_heap_space ; < 0 ?
+    sub rax, _malloc_minimum_chunk_size
+    jc .alloc_heap_space ; < 0 ?
     jmp .create_chunk
 .alloc_heap_space:
     push rdi ; save requested space because we'll be adding chunk header size.
     ; space required = space requested + chunk_header_size.
     add qword rdi, _malloc_chunk_header_size
-    add qword rdi, [_malloc_heap_start]
     ; if space required is less than minimum chunk size, alloc chunk size.
     cmp rdi, _malloc_minimum_chunk_size
     jg .call_brk
     mov rdi, _malloc_minimum_chunk_size
 .call_brk:
     ; use BRK to allocate more heap space.
+    add rdi, [_malloc_heap_start]
+    add rdi, [_malloc_heap_size]
     mov rax, syscall_brk
-    syscall 
+    syscall
     ; check for failure.
     cmp rax, [_malloc_heap_start]
     je .return_null
