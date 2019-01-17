@@ -1,9 +1,10 @@
 #include <stdlib.h>
 
-int main(int argc, char** argv)
+__attribute__((optimize(0)))
+int main(int argc, char** argv) 
 {
-    int* pa = 0;
-    int* pb = 0;
+    volatile int* pa = 0;
+    volatile int* pb = 0;
     for (int i = 30000 ; i != 0 ; --i)
     {
         pa = malloc(20);

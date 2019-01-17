@@ -8,7 +8,6 @@ real	0m0.005s
 user	0m0.003s
 sys	0m0.001s
 
-
 ---------------------------------------
 - asm_userland malloc (basic K&R)     -
 ---------------------------------------
@@ -31,8 +30,8 @@ sys	0m0.009s
 --------------------------------------------
 - asm_userland malloc (added free counter) -
 --------------------------------------------
-Same as above, but added a free block counter, and skip
-looking for free blocks if there are none.
+Same as above, but added a free block counter, 
+and skip looking for free blocks if there are none.
 
 real	0m6.653s
 user	0m6.642s
