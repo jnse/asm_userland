@@ -45,6 +45,8 @@ SECTION .bss
         .bytes: resq 1              ; size of chunk in bytes.
         .p_data: resq 1             ; pointer to chunk data.
         .free: resb 1               ; chunk free flag.
+        .p_next: resq 1             ; pointer to next chunk.
+        .p_prev: resq 1             ; pointer to previous chunk.
     endstruc
     ; free chunk bin (double linked-list)
     struc _malloc_free_chunk_bin
@@ -101,6 +103,26 @@ init_memory:
     pop rax
     ret
 
+; malloc_find_chunk_in_bin: find a fitting chunk in a free bin.
+; arguments:
+;     rdi : requested size in bytes.
+;     rsi : pointer to bin to search.
+; WORK IN PROGRESS
+malloc_find_chunk_in_bin:
+    ; if there's no chunks in this bin, skip.
+    cmp qword [rsi + _malloc_free_chunk_bin.num_chunk], 0
+    je .done
+    ; use rcx as iterator.
+    mov qword rcx, [rsi + _malloc_free_chunk_bin.p_chunk]
+.loop:
+    ; is chunk big enough?
+    cmp qword rdi, [rcx + _malloc_chunk_header.bytes]
+    jle .done
+    ; if not, move to next chunk.
+     
+.done:
+    ret
+
 ; arguments:
 ;     rdi : size of requested chunk.
 ; WORK IN PROGRESS
@@ -118,8 +140,10 @@ malloc_find_free_chunk:
     jg .next
 .found_bin:
     ; find fitting chunk in bin.
+    call malloc_find_chunk_in_bin
+    ;
     jmp .done
-.prev
+.prev:
     ; move to prev bin (if any).
     cmp qword [rcx + _malloc_free_chunk_bin.p_prev], 0
     je .done
@@ -314,6 +338,7 @@ malloc_create_chunk:
     ; save clobbered registers.
     push rdx
     push rcx
+    push rbx
     ; allocate more heap space if needed.
     mov qword rdx, [_malloc_heap_end]
     call malloc_grow_if_needed_for_chunk
@@ -338,10 +363,15 @@ malloc_create_chunk:
     ; make rcx point to the new chunk data.
     mov rcx, rdx
     add rcx, _malloc_chunk_header_size
+    ; make rbx point to the old chunk.
+    mov rbx, [_malloc_mem_cursor]
     ; write new chunk fields. 
     mov qword [rdx + _malloc_chunk_header.bytes], rdi
     mov qword [rdx + _malloc_chunk_header.p_data], rcx
     mov byte [rdx + _malloc_chunk_header.free], 0
+    mov qword [rdx + _malloc_chunk_header.p_prev], rbx
+    mov qword [rbx + _malloc_chunk_header.p_next], rcx
+    mov qword [rdx + _malloc_chunk_header.p_next], 0
     ; move memory cursor to start of new chunk.
     mov qword [_malloc_mem_cursor], rdx
     ; consume free heap space.
@@ -353,6 +383,7 @@ malloc_create_chunk:
 .failed:
     xor rax, rax
 .done:
+    pop rbx
     pop rcx
     pop rdx
     ret
@@ -404,6 +435,7 @@ malloc:
 
 ; free: releases memory allocated with malloc.
 ;
+; WORK IN PROGRESS
 ; arguments:
 ;     rdi : pointer to address of memory to be freed.
 ;
@@ -439,6 +471,16 @@ free:
     mov qword rdx, [rcx + _malloc_chunk_header.bytes]
     mov qword [_malloc_last_free_size], rdx
     pop rdx
+.check_prev:
+    ; if there's a previous chunk, zero it's next chunk ptr.
+    cmp qword [rcx + _malloc_chunk_header.p_prev], 0
+    je .check_next
+    push rdx
+    mov qword rdx, [rcx + _malloc_chunk_header.p_prev]
+    mov qword [rcx + _malloc_chunk_header.p_next], 0
+
+.check_next
+
     ; increment free chunk counter.
     inc qword [_malloc_free_counter]
     jmp .done
