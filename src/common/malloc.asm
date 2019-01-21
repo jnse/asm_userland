@@ -35,11 +35,9 @@ SECTION .bss
     _malloc_heap_free: resq 1       ; stores how many bytes of heap space is free.
     _malloc_mem_cursor: resq 1      ; always points to the chunk at heap edge.
 
-    _malloc_debug_buffer: resq 1    ; itoa buffer for debugging.
     _malloc_first: resb 1           ; first chunk flag
     _malloc_last_free_cache: resq 1 ; Pointer to the last freed chunk.
-    _malloc_last_free_size: resq 1  ; Pointer tot he last freed chunk's size.
-    _malloc_free_counter: resq 1    ; Counts number of available free chunks.
+    _malloc_last_free_size: resq 1  ; Pointer tot he last freed chunk's size.    
     ; malloc chunk header fields
     struc _malloc_chunk_header
         .bytes: resq 1              ; size of chunk in bytes.
@@ -48,34 +46,33 @@ SECTION .bss
         .p_next: resq 1             ; pointer to next chunk.
         .p_prev: resq 1             ; pointer to previous chunk.
     endstruc
-    ; free chunk bin (double linked-list)
-    struc _malloc_free_chunk_bin
-        .min: resq 1                ; no free chunks < min in this bin.
-        .max: resq 1                ; no free chunks > max in this bin.
+
+    ; free chunk stack
+    struc _malloc_free_chunk_stack
         .p_next: resq 1             ; pointer to next bin.
         .p_prev: resq 1             ; pointer to prev bin
         .p_chunk: resq 1            ; pointer to first child chunk
-        .num_chunk: resq 1          ; number of child chunks.
     endstruc
-    _malloc_free_chunk_tree: resq 1 ; pointer to first free chunk bin (if any).
+    ; pointer to first free chunk bin (if any).
+    _malloc_free_chunk_stack: resq 1 
+    ; pointer to the last entry in the free chunk stack.
+    _malloc_free_chunk_stack_last: resq 1 
+
 
 SECTION .data
    
     ; allocate at least this many bytes (one page seems reasonable).
-    _malloc_minimum_chunk_size equ 4096
+    _malloc_page_size equ 4096
     ; error strings.
     _malloc_msg_failed db "Malloc failed.", 0
     _free_msg_no_chunk db "Free: could not find chunk to release.", 0
-    ; debug strings.
-    _malloc_msg_debug_next_chunk db "Chunk at : ", 0
-    _malloc_msg_debug_bytes db  "    bytes  : ", 0
-    _malloc_msg_debug_p_data db "    pdata  : ", 0
-    _malloc_msg_debug_free db   "    free   : ", 0
 
 SECTION .text
 
 %include "syscalls.asm"
 %include "print.asm"
+
+; constructor -----------------------------------------------------------------
 
 init_memory:
     ; save registers
@@ -95,148 +92,15 @@ init_memory:
     ; Init freed chunk cache.
     mov qword [_malloc_last_free_cache], 0
     mov qword [_malloc_last_free_size], 0
-    mov qword [_malloc_free_counter], 0
     mov qword [_malloc_heap_free], 0
-    mov qword [_malloc_free_chunk_tree], 0
+    mov qword [_malloc_free_chunk_stack], 0
+    mov qword [_malloc_free_chunk_stack_last], 0
     ; restore registers.
     pop rdi
     pop rax
     ret
 
-; malloc_find_chunk_in_bin: find a fitting chunk in a free bin.
-; arguments:
-;     rdi : requested size in bytes.
-;     rsi : pointer to bin to search.
-; WORK IN PROGRESS
-malloc_find_chunk_in_bin:
-    ; if there's no chunks in this bin, skip.
-    cmp qword [rsi + _malloc_free_chunk_bin.num_chunk], 0
-    je .done
-    ; use rcx as iterator.
-    mov qword rcx, [rsi + _malloc_free_chunk_bin.p_chunk]
-.loop:
-    ; is chunk big enough?
-    cmp qword rdi, [rcx + _malloc_chunk_header.bytes]
-    jle .done
-    ; if not, move to next chunk.
-     
-.done:
-    ret
-
-; arguments:
-;     rdi : size of requested chunk.
-; WORK IN PROGRESS
-malloc_find_free_chunk:
-    ; skip if there isn't any.
-    cmp qword [_malloc_free_counter], 0
-    je .done
-    ; rcx = iterator.
-    mov qword rcx, [_malloc_free_chunk_tree]
-.loop:
-    ; check size boundaries.
-    cmp qword rdi, [rcx + _malloc_free_chunk_bin.min]
-    jl .prev
-    cmp qword rdi, [rcx + _malloc_free_chunk_bin.max]
-    jg .next
-.found_bin:
-    ; find fitting chunk in bin.
-    call malloc_find_chunk_in_bin
-    ;
-    jmp .done
-.prev:
-    ; move to prev bin (if any).
-    cmp qword [rcx + _malloc_free_chunk_bin.p_prev], 0
-    je .done
-    mov qword rcx, [rcx + _malloc_free_chunk_bin.p_prev]
-    jmp .loop
-.next:
-    ; move to next bin (if any).
-    cmp qword [rcx + _malloc_free_chunk_bin.p_next], 0
-    je .done
-    mov qword rcx, [rcx + _malloc_free_chunk_bin.p_next]
-    jmp .loop
-.done:
-    ret
-
-; dump all fields of a malloc chunk.
-;
-; arguments:
-;     rdi : pointer to chunk
-;
-malloc_debug_fields:
-    push rcx
-    push rdi
-    push rax
-    mov rcx, rdi
-    ; print chunk address
-    push rcx
-    mov qword rdi, _malloc_msg_debug_next_chunk
-    call print
-    mov rdi, _malloc_debug_buffer
-    pop rsi
-    push rsi
-    call itoa_hex
-    call println
-    ; print chunk bytes
-    mov qword rdi, _malloc_msg_debug_bytes
-    call print
-    mov rdi, _malloc_debug_buffer
-    pop rcx
-    mov qword rsi, [rcx + _malloc_chunk_header.bytes]
-    push rcx
-    call itoa
-    call println
-    ; print chunk data ptr
-    mov qword rdi, _malloc_msg_debug_p_data
-    call print
-    mov rdi, _malloc_debug_buffer
-    pop rcx
-    push rcx
-    mov qword rsi, [rcx + _malloc_chunk_header.p_data]
-    call itoa_hex
-    call println
-    ; print free
-    mov qword rdi, _malloc_msg_debug_free
-    call print
-    mov rdi, _malloc_debug_buffer
-    pop rcx
-    mov qword rsi, [rcx + _malloc_chunk_header.free]
-    call itoa_hex
-    call println
-    pop rax
-    pop rdi
-    pop rcx
-    ret
-
-; dump all chunks.
-malloc_debug:
-    push rcx
-    push rsi
-    push rdi
-    push rax
-    mov qword rcx, [_malloc_heap_size]
-    test rcx, rcx
-    jz .done 
-    mov qword rcx, [_malloc_heap_start]
-.debug_loop:
-    mov rdi, rcx
-    push rcx
-    call malloc_debug_fields
-    pop rcx
-    ; move to next chunk
-    add rcx, [rcx + _malloc_chunk_header.bytes]
-    add rcx, _malloc_chunk_header_size
-.next:
-    ; loop
-    cmp rcx, [_malloc_mem_cursor]
-    jg .done
-    jmp .debug_loop
-.done:
-    pop rax
-    pop rdi
-    pop rsi
-    pop rcx
-    ret
+; heap management -------------------------------------------------------------
 
 ; malloc_grow_heap : grows program heap.
 ;
@@ -249,10 +113,10 @@ malloc_grow_heap:
     ; save clobbered registers.
     push rdi
     push rdx
-    ; if space required is less than minimum chunk size, alloc chunk size.
-    cmp rdi, _malloc_minimum_chunk_size
+    ; if space required is less than the page size, alloc page size.
+    cmp rdi, _malloc_page_size
     jg .call_brk
-    mov rdi, _malloc_minimum_chunk_size
+    mov rdi, _malloc_page_size
 .call_brk:
     ; use BRK to allocate more heap space.
     add rdi, [_malloc_heap_start]
@@ -299,11 +163,27 @@ malloc_can_fit_chunk:
     ; if we're still good at this point, we're done.
     jmp .not_full
 .full:
-    mov rax, 0
+    xor rax, rax
     jmp .done
 .not_full:
     mov rax, 1
 .done:
+    ret
+
+; checks if we can fit a new chunk cache entry in the heap without growing it.
+;
+; returns:
+;     rax : set to 0 if heap full.
+;           set to 1 if fits.
+malloc_can_fit_cache_entry:
+    mov rax, [_malloc_heap_free]
+    sub rax, _malloc_free_chunk_stack_size
+    jc .full
+    mov rax,1
+    jmp .done
+.full
+    xor rax, rax
+.done
     ret
 
 ; malloc_grow_if_needed_for_chunk : grows heap if needed to fit a chunk.
@@ -322,6 +202,35 @@ malloc_grow_if_needed_for_chunk:
     call malloc_grow_heap
 .done:
     ret
+
+; grows heap if needed to fit a free chunk cache entry.
+;
+; returns:
+;     rax : 0 on failure, 1 on success.
+;
+malloc_grow_if_needed_for_cache:
+    ; save clobbered registers.
+    push rdi
+    ; check if there's room on the heap.
+    mov rdi, _malloc_free_chunk_stack_size
+    call malloc_can_fit_cache_entry
+    test rax, rax
+    jnz .success
+    ; not enough room, make some.
+    call malloc_grow_heap
+    test rax, rax
+    jz .failed
+.success:    
+    mov rax, 1
+    jmp .done
+.failed:
+    xor rax,rax
+.done
+    ; restore clobbered registers.
+    pop rdi
+    ret
+
+; chunk management ------------------------------------------------------------
 
 ; malloc_create_chunk : creates a chunk of memory.
 ; 
@@ -388,6 +297,114 @@ malloc_create_chunk:
     pop rdx
     ret
 
+; free chunk management -------------------------------------------------------
+
+; creates a free chunk in the free chunk stack.
+;
+; arguments:
+;     rdi : pointer to chunk
+; returns:
+;     rax : pointer to free chunk.
+;           or 0 if failed.
+;
+malloc_create_free_chunk:
+    ; save clobbered registers.
+    push rdx
+    ; make sure there is room on the heap.
+    call malloc_grow_if_needed_for_cache
+    test rax, rax
+    jz .failed
+    ; find start of free memory.
+    mov rax, [_malloc_heap_end]
+    sub rax, [_malloc_heap_free]
+    ; save pointer to the last free chunk on the stack.
+    mov rdx, [_malloc_free_chunk_stack_last]
+    ; populate fields.
+    mov [rax + _malloc_free_chunk_stack.p_next], 0
+    mov [rax + _malloc_free_chunk_stack.p_prev], rdx
+    mov [rax + _malloc_free_chunk_stack.p_chunk], rdi
+    ; update last free chunk's next pointer.
+    mov [rdx + _malloc_free_chunk_stack.p_next], rax
+    ; update pointer to last free chunk.
+    mov [_malloc_free_chunk_stack_last], rax
+    ; increment free chunks.
+    inc [_malloc_free_chunk_stack_size]
+    jmp .done 
+.failed:
+    xor rax, rax
+.done:
+    ; restore clobbered registers.
+    pop rdx
+    ret
+
+; finds a free chunk to fit given size.
+;
+; arguments:
+;     rdi : pointer to chunk.
+; returns:
+;     rax : pointer to free chunk.
+;           0 if none found.
+;
+malloc_find_free_chunk:
+    ; save clobbered registers.
+    push rcx
+    ; rcx = iterator - start searching from most recently freed.
+    mov rcx, [_malloc_free_chunk_stack_last]
+    test rcx, rcx
+    jz .failed
+    ; skip if there's no free blocks.
+    cmp [_malloc_free_chunk_stack_size], 0
+    jmp .failed
+.loop:
+    ; rax keeps a pointer to the chunk.
+    mov rax, [rcx + _malloc_free_chunk_stack.p_chunk]
+    test rax, rax
+    jz .next_free_bin
+    ; free chunk big enough?
+    cmp rdi, [rax + _malloc_chunk_header.bytes]
+    jle .done
+.next_free_bin:
+    mov rcx, [rcx + _malloc_free_chunk_stack.p_prev]
+    test rcx, rcx
+    jnz .loop
+.failed:
+    xor rax, rax
+.done:
+    ; restore clobbered registers.
+    pop rcx
+    ret
+
+; consumes a free chunk.
+;
+; arguments:
+;    rdi : pointer to free chunk.
+; returns:
+;    rax : pointer to chunk.
+;
+malloc_consume_free_chunk:
+    ; for now just remove pointers to this chunk.
+    ; rcx = prev chunk.
+    mov rcx, [rdi + _malloc_free_chunk_stack.p_prev]
+    test rcx, rcx
+    jz .update_next
+    ; rdx = next chunk.
+    mov rdx, [rdi + _malloc_free_chunk_stack.p_next]
+    test rdx, rdx
+    jz .update_prev
+    ; stitch prev+next togeather.
+    mov [rcx + _malloc_free_chunk_stack.p_next], rdx
+    mov [rdx + _malloc_free_chunk_stack.p_prev], rcx
+    jmp .done
+.update_prev:    
+    mov rcx, [rdi + _malloc_free_chunk_stack.p_prev]
+    test rcx, rcx
+    jz .update_next
+    mov [rcx + _malloc_free_chunk_stack.p_next], 0
+.update_next:
+    mov rcx, [rdi + 
+
+; end-user functions. ---------------------------------------------------------
+
 ; malloc : allocates memory.
 ;
 ; arguments: 
@@ -406,18 +423,34 @@ malloc:
 .is_cache_usable:
     ; if cache size is an exact match in size, use it!
     cmp qword [_malloc_last_free_cache], 0
-    je .create_chunk
+    je .check_heap
     cmp qword [_malloc_last_free_size], rdi
-    jne .create_chunk
+    jne .check_heap
 .use_cache:
     ; mark cached block as used, and return it.
     mov qword [_malloc_last_free_cache + _malloc_chunk_header.free], 0
     mov qword rcx, [_malloc_last_free_cache]
     mov qword rax, [rcx + _malloc_chunk_header.p_data]
     ; consume cache
+    ; TODO TODO TODO 
     mov qword [_malloc_last_free_cache], 0
     mov qword [_malloc_last_free_size], 0
     dec qword [_malloc_free_counter]
+    jmp .done
+.check_heap:
+    ; if the chunk will fit in the heap, just create it.
+    ; otherwise, see if we can re-use a free block.
+    call malloc_can_fit_chunk
+    test rax, rax
+    jnz .create_chunk
+.try_reuse_free:
+    call malloc_find_free_chunk
+    test rax,rax
+    jz .create_chunk
+    ; rax now points to a usable chunk.
+    ; if it's too big, we might have to split it.
+    mov rsi, rax
+    call malloc_split_chunk
     jmp .done
 .create_chunk:
     call malloc_create_chunk
@@ -435,12 +468,12 @@ malloc:
 
 ; free: releases memory allocated with malloc.
 ;
-; WORK IN PROGRESS
 ; arguments:
 ;     rdi : pointer to address of memory to be freed.
 ;
 free:
     ; save clobbered registers.
+    push rdx
     push rcx
     push rax
 .find_chunk_to_free:
@@ -467,22 +500,28 @@ free:
     mov byte [rcx + _malloc_chunk_header.free], 1 ; do the deed.
     ; save a pointer to this chunk and it's size in case we can re-use it.
     mov qword [_malloc_last_free_cache], rcx
-    push rdx
     mov qword rdx, [rcx + _malloc_chunk_header.bytes]
     mov qword [_malloc_last_free_size], rdx
-    pop rdx
 .check_prev:
     ; if there's a previous chunk, zero it's next chunk ptr.
     cmp qword [rcx + _malloc_chunk_header.p_prev], 0
     je .check_next
-    push rdx
     mov qword rdx, [rcx + _malloc_chunk_header.p_prev]
-    mov qword [rcx + _malloc_chunk_header.p_next], 0
-
+    mov qword [rdx + _malloc_chunk_header.p_next], 0
 .check_next
-
+    ; if there's a next chunk, zero it's prev chunk ptr.
+    cmp qword [rcx + _malloc_chunk_header.p_next], 0
+    je .done_free
+    mov qword rdx, [rcx + _malloc_chunk_header.p_next]
+    mov qword [rdx + _malloc_chunk_header.p_prev], 0
+.done_free:
     ; increment free chunk counter.
     inc qword [_malloc_free_counter]
+    ; place free chunk in a free chunk bin.
+    push rdi
+    mov rdi, rcx
+    call place_free_chunk_in_bin
+    pop rdi
     jmp .done
 .chunk_not_found_error:
     mov rdi, _free_msg_no_chunk
@@ -491,6 +530,7 @@ free:
     ; restore clobbered registers and return.
     pop rax
     pop rcx
+    pop rdx
     ret
 
 %endif
