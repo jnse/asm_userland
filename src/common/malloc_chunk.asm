@@ -10,6 +10,8 @@ SECTION .bss
       .free: resb 1   ; chunk free flag.
       .p_prev: resq 1 ; pointer to previous chunk.
       .p_next: resq 1 ; pointer to next chunk.
+      .p_prev_free: resq 1 ; pointer to next free chunk.
+      .p_next_free: resq 1 ; pointer to previous free chunk.
     endstruc
 
     _malloc_chunk_first_ptr: resq 1 ; pointer to first allocated chunk.
@@ -53,6 +55,10 @@ _malloc_chunk_create:
     mov qword [rax + _malloc_chunk_header.bytes], rdi
     mov qword [rax + _malloc_chunk_header.p_data], rcx
     mov byte [rax + _malloc_chunk_header.free], 0
+    mov qword [rax + _malloc_chunk_header.p_next], 0
+    mov qword [rax + _malloc_chunk_header.p_prev], 0
+    mov qword [rax + _malloc_chunk_header.p_next_free], 0
+    mov qword [rax + _malloc_chunk_header.p_prev_free], 0
     push rcx
     mov rcx, [_malloc_chunk_last_ptr]
     mov qword [rax + _malloc_chunk_header.p_prev], rcx
@@ -69,11 +75,44 @@ _malloc_chunk_create:
     cmp qword [_malloc_chunk_first_ptr], 0
     jne .done
     mov [_malloc_chunk_first_ptr], rax
+    ; result = ptr to data.
+    mov qword rax, [rax + _malloc_chunk_header.p_data]
     jmp .done
 .failed:
     xor rax, rax
 .done:
     ; restore clobbered registers.
+    pop rcx
+    ret
+
+; find a chunk with given data ptr.
+;
+; arguments:
+;     rdi : pointer to chunk's data.
+; returns:
+;     rax : pointer to found chunk, or 0 if not found.
+;
+_malloc_chunk_find:
+    ; save clobbered registers.
+    push rcx
+    ; iterate on rcx, start from most recent.
+    mov rcx, [_malloc_chunk_last_ptr]
+    ; if there are no chunks, skip.
+    test rcx, rcx
+    jz .not_found
+.loop:
+    cmp qword rdi, [rcx + _malloc_chunk_header.p_data]
+    je .found
+    mov rcx, [rcx + _malloc_chunk_header.p_prev]
+    test rcx, rcx
+    jnz .loop
+.not_found:
+    xor rax, rax
+    jmp .done
+.found:
+    mov rax, rcx
+.done:
+    ; restore clobbered registers
     pop rcx
     ret
 

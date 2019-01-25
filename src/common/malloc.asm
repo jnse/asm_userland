@@ -54,10 +54,12 @@ init_memory:
     call _malloc_lifo_init
     ret
 
-; malloc : allocates memory.
+; allocates memory.
 ;
-; arguments: rdi : Number of bytes to allocate.
-; returns : rax = pointer to allocated memory.
+; arguments:
+;     rdi : number of bytes to allocate.
+; returns:
+;     rax : pointer to allocated memory.
 ;
 malloc:
 .handle_null:
@@ -86,6 +88,43 @@ malloc:
 ;     rdi : pointer to address of memory to be freed.
 ;
 free:
+    call _malloc_chunk_find
+    test rax, rax
+    jz .chunk_not_found_error
+    push rax
+    call _malloc_lifo_add_chunk
+    test rax, rax
+    pop rax
+    ; TODO should be different error
+    jz .chunk_not_found_error
+    ; if there's both a previous and a next chunk, stitch them.
+    mov qword rdx, [rax + _malloc_chunk_header.p_prev]
+    mov qword rcx, [rax + _malloc_chunk_header.p_next]
+    test rdx, rdx
+    jz .skip_stitch
+    test rcx, rcx
+    jz .skip_stitch 
+    mov qword [rcx + _malloc_chunk_header.p_prev], rdx
+    mov qword [rdx + _malloc_chunk_header.p_next], rcx
+.skip_stitch:
+    ; if there's a previous chunk, null it's next ptr.
+    test rdx, rdx
+    jz .skip_zero_prev
+    mov qword [rdx + _malloc_chunk_header.p_next], 0
+.skip_zero_prev:
+    ; if there's a next entry, null it's prev ptr.
+    test rcx, rcx
+    jz .skip_zero_next
+    mov qword [rcx + _malloc_chunk_header.p_prev], 0
+.skip_zero_next:
+    dec qword [_malloc_chunk_count]
+    jmp .done
+.chunk_not_found_error:
+    push rdi
+    mov rdi, _free_msg_no_chunk
+    call println
+    pop rdi
+.done:
     ret
 
 %endif

@@ -54,18 +54,8 @@ _start:
 
     push rax
     
-    mov rsi, [_malloc_mem_cursor]
-    mov rdi, mystr
-    call itoa_hex
-    call println
-
     mov rdi, 45
     call malloc
-
-    mov rsi, [_malloc_mem_cursor]
-    mov rdi, mystr
-    call itoa_hex
-    call println
 
     call malloc_debug_chunks
     mov rdi, line

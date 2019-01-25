@@ -82,6 +82,10 @@ _malloc_heap_grow_if_needed:
     mov rax, [_malloc_heap_free]
     sub rax, rdi
     jz .need_space
+.consume_space:
+    sub qword [_malloc_heap_free], rdi
+    jnz .calc_ptr
+    mov qword [_malloc_heap_free], 0
     jmp .calc_ptr
 .need_space:
     call _malloc_heap_grow
