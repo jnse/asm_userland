@@ -53,7 +53,11 @@ _start:
     call malloc
 
     push rax
-    
+
+    call malloc_debug_chunks
+    mov rdi, line
+    call println
+
     mov rdi, 45
     call malloc
 

@@ -45,6 +45,7 @@ _malloc_lifo_add_chunk:
     cmp qword [_malloc_lifo_first_ptr], 0
     jne .done
     mov [_malloc_lifo_first_ptr], rdi
+    jmp .done
 .failed:
     xor rax, rax
 .done:

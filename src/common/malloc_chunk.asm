@@ -7,7 +7,7 @@ SECTION .bss
     struc _malloc_chunk_header
       .bytes: resq 1  ; size of chunk in bytes.
       .p_data: resq 1 ; pointer to chunk data.
-      .free: resb 1   ; chunk free flag.
+      .free: resq 1   ; chunk free flag.
       .p_prev: resq 1 ; pointer to previous chunk.
       .p_next: resq 1 ; pointer to next chunk.
       .p_prev_free: resq 1 ; pointer to next free chunk.
@@ -59,15 +59,15 @@ _malloc_chunk_create:
     mov qword [rax + _malloc_chunk_header.p_prev], 0
     mov qword [rax + _malloc_chunk_header.p_next_free], 0
     mov qword [rax + _malloc_chunk_header.p_prev_free], 0
-    push rcx
-    mov rcx, [_malloc_chunk_last_ptr]
+    push rcx ; save rcx = ptr to data
+    mov rcx, [_malloc_chunk_last_ptr] ; rcx = prev chunk.
     mov qword [rax + _malloc_chunk_header.p_prev], rcx
     ; do we need to update previous chunk's next ptr?
     test rcx, rcx
     jz .skip_update_prev
     mov qword [rcx + _malloc_chunk_header.p_next], rax
 .skip_update_prev:
-    pop rcx
+    pop rcx ; restore rcx = ptr to data
     mov qword [rax + _malloc_chunk_header.p_next], 0
     ; update last chunk ptr.
     mov [_malloc_chunk_last_ptr], rax
@@ -113,6 +113,64 @@ _malloc_chunk_find:
     mov rax, rcx
 .done:
     ; restore clobbered registers
+    pop rcx
+    ret
+
+; removes a chunk from the linked list of chunks.
+;
+; arguments:
+;     rdi : pointer to chunk to be removed.
+;
+_malloc_remove_chunk:
+    ; save clobbered registers.
+    push rcx
+    push rdx
+    push rdi
+    ; actually mark the chunk as free.
+    mov qword [rdi + _malloc_chunk_header.free], 1
+    ; if there's both a previous and a next chunk, stitch them.
+    mov qword rdx, [rdi + _malloc_chunk_header.p_prev]
+    mov qword rcx, [rdi + _malloc_chunk_header.p_next]
+    test rdx, rdx
+    jz .skip_stitch
+    test rcx, rcx
+    jz .skip_stitch 
+    mov qword [rcx + _malloc_chunk_header.p_prev], rdx
+    mov qword [rdx + _malloc_chunk_header.p_next], rcx
+.skip_stitch:
+    ; if there's a previous chunk, null it's next ptr.
+    test rdx, rdx
+    jz .skip_zero_prev
+    mov qword [rdx + _malloc_chunk_header.p_next], 0
+.skip_zero_prev:
+    ; if there's a next entry, null it's prev ptr.
+    test rcx, rcx
+    jz .skip_zero_next
+    mov qword [rcx + _malloc_chunk_header.p_prev], 0
+.skip_zero_next:
+    ; is this the first chunk?
+    cmp rdi, [_malloc_chunk_first_ptr]
+    jne .decrement_chunk_count
+.is_first_chunk:    
+    ; set first chunk ptr to next chunk 
+    ; (could be 0 if there's no chunks left).
+    mov [_malloc_chunk_first_ptr], rcx
+.decrement_chunk_count:
+    dec qword [_malloc_chunk_count]
+    ; is this the last chunk?
+    cmp qword rdi, [_malloc_chunk_last_ptr]
+    jne .zero_pointers
+.is_last_chunk:
+    ; set last chunk ptr to prev chunk
+    ; (could be 0 if there's no prev chunks left).
+    mov [_malloc_chunk_last_ptr], rdx
+.zero_pointers:
+    mov qword [rdi + _malloc_chunk_header.p_next], 0
+    mov qword [rdi + _malloc_chunk_header.p_prev], 0
+.done:
+    ; restore clobbered registers.
+    pop rdi
+    pop rdx
     pop rcx
     ret
 

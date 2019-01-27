@@ -42,6 +42,7 @@ SECTION .data
    ; error strings.
     _malloc_msg_failed db "Malloc failed.", 0
     _free_msg_no_chunk db "Free: could not find chunk to release.", 0
+    _free_msg_add_fail db "Free: could not add free chunk to stack.", 0
 
 SECTION .text
 
@@ -92,36 +93,23 @@ free:
     test rax, rax
     jz .chunk_not_found_error
     push rax
+    mov rdi, rax
     call _malloc_lifo_add_chunk
     test rax, rax
     pop rax
-    ; TODO should be different error
-    jz .chunk_not_found_error
-    ; if there's both a previous and a next chunk, stitch them.
-    mov qword rdx, [rax + _malloc_chunk_header.p_prev]
-    mov qword rcx, [rax + _malloc_chunk_header.p_next]
-    test rdx, rdx
-    jz .skip_stitch
-    test rcx, rcx
-    jz .skip_stitch 
-    mov qword [rcx + _malloc_chunk_header.p_prev], rdx
-    mov qword [rdx + _malloc_chunk_header.p_next], rcx
-.skip_stitch:
-    ; if there's a previous chunk, null it's next ptr.
-    test rdx, rdx
-    jz .skip_zero_prev
-    mov qword [rdx + _malloc_chunk_header.p_next], 0
-.skip_zero_prev:
-    ; if there's a next entry, null it's prev ptr.
-    test rcx, rcx
-    jz .skip_zero_next
-    mov qword [rcx + _malloc_chunk_header.p_prev], 0
-.skip_zero_next:
-    dec qword [_malloc_chunk_count]
+    jz .chunk_add_error
+    mov rdi, rax
+    call _malloc_remove_chunk
     jmp .done
 .chunk_not_found_error:
     push rdi
     mov rdi, _free_msg_no_chunk
+    call println
+    pop rdi
+    jmp .done
+.chunk_add_error:
+    push rdi
+    mov rdi, _free_msg_add_fail
     call println
     pop rdi
 .done:

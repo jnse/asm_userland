@@ -66,7 +66,8 @@ malloc_debug_chunk:
     call print
     mov rdi, _malloc_debug_buffer
     pop rcx
-    mov byte rsi, [rcx + _malloc_chunk_header.free]
+    push rcx
+    mov qword rsi, [rcx + _malloc_chunk_header.free]
     call itoa_hex
     call println
     ; print p_prev
@@ -101,7 +102,6 @@ malloc_debug_chunk:
     call print
     mov rdi, _malloc_debug_buffer
     pop rcx
-    push rcx
     mov qword rsi, [rcx + _malloc_chunk_header.p_next_free]
     call itoa_hex
     call println
