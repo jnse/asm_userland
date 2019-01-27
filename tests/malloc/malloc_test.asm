@@ -49,34 +49,30 @@ _start:
     ;call println
 
     ; allocate a bunch of memory
+    mov rdi, 10
+    call malloc
+
     mov rdi, 20
     call malloc
-
     push rax
 
-    call malloc_debug_chunks
-    mov rdi, line
-    call println
-
-    mov rdi, 45
+    mov rdi, 30
     call malloc
 
+    ; print the list of chunks before free'ing.
     call malloc_debug_chunks
     mov rdi, line
     call println
 
-    ; now free last chunk of memory
+    ; now free the middle chunk, the other two should
+    ; be stitched togeather in the linked list.
     pop rax
     mov rdi, rax
     call free
 
-    call malloc_debug_chunks
+    call malloc_debug_free_stack
     mov rdi, line
     call println
-
-    ; see if it will be re-used
-    mov rdi, 100
-    call malloc
 
     call malloc_debug_chunks
     mov rdi, line

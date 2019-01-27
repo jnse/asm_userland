@@ -39,8 +39,6 @@ _malloc_lifo_add_chunk:
     jz .skip_update_prev
     mov qword [rcx + _malloc_chunk_header.p_next_free], rdi
 .skip_update_prev:
-    ; update last lifo entry ptr.
-    mov [_malloc_chunk_last_ptr], rdi
     ; if this is the first lifo entry, update first entry ptr.
     cmp qword [_malloc_lifo_first_ptr], 0
     jne .done

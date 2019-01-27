@@ -12,14 +12,16 @@ section .bss
 section .data
 
     ; debug strings.
-    _malloc_msg_debug_next_chunk db  "Chunk at        : ", 0
-    _malloc_msg_debug_bytes db       "    bytes       : ", 0
-    _malloc_msg_debug_p_data db      "    pdata       : ", 0
-    _malloc_msg_debug_free db        "    free        : ", 0
-    _malloc_msg_debug_p_next db      "    p_next      : ", 0
-    _malloc_msg_debug_p_prev db      "    p_prev      : ", 0
+    _malloc_msg_debug_next_chunk db "Chunk at        : ", 0
+    _malloc_msg_debug_bytes db "    bytes       : ", 0
+    _malloc_msg_debug_p_data db "    pdata       : ", 0
+    _malloc_msg_debug_free db "    free        : ", 0
+    _malloc_msg_debug_p_next db "    p_next      : ", 0
+    _malloc_msg_debug_p_prev db "    p_prev      : ", 0
     _malloc_msg_debug_p_prev_free db "    p_prev_free : ", 0
     _malloc_msg_debug_p_next_free db "    p_next_free : ", 0
+    _malloc_msg_debug_chunks_allocated db "ALLOCATED CHUNKS:", 0
+    _malloc_msg_debug_chunks_free db "FREE CHUNKS:", 0
 section .text
 
 ; dump all fields of a malloc chunk.
@@ -111,12 +113,14 @@ malloc_debug_chunk:
     pop rcx
     ret
 
-; dump all chunks.
+; dumps all allocated chunks.
 malloc_debug_chunks:
     push rcx
     push rsi
     push rdi
     push rax
+    mov rdi, _malloc_msg_debug_chunks_allocated
+    call println
     mov qword rcx, [_malloc_chunk_count]
     test rcx, rcx
     jz .done 
@@ -134,6 +138,27 @@ malloc_debug_chunks:
     pop rax
     pop rdi
     pop rsi
+    pop rcx
+    ret
+
+; dumps the stack of freed chunks.
+malloc_debug_free_stack:
+    push rcx
+    push rdi
+    mov rdi, _malloc_msg_debug_chunks_free
+    call println    
+    mov qword rcx, [_malloc_lifo_first_ptr]
+.debug_loop:
+    test rcx, rcx
+    jz .done
+    mov rdi, rcx
+    push rcx
+    call malloc_debug_chunk
+    pop rcx
+    mov rcx, [rcx + _malloc_chunk_header.p_next_free]
+    jmp .debug_loop
+.done:
+    pop rdi
     pop rcx
     ret
 

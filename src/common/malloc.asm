@@ -72,6 +72,7 @@ malloc:
     jz .return_null
     ; TODO: attempt to use bin cache
     call _malloc_chunk_create
+    mov rax, [rax + _malloc_chunk_header.p_data]
     jmp .done
 .return_null:
     mov rdi, _malloc_msg_failed
