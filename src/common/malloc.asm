@@ -70,7 +70,17 @@ malloc:
     ; allocating 0 bytes means don't do anything.
     test rdi, rdi
     jz .return_null
-    ; TODO: attempt to use bin cache
+    ; attempt to find a fitting entry in cache.
+    call _malloc_lifo_find_fit
+    test rax, rax
+    jz .create_new_chunk
+.use_cached_chunk:
+    mov rdi, rax
+    call _malloc_lifo_remove_entry
+    call _malloc_chunk_insert
+    mov rax, [rax + _malloc_chunk_header.p_data]
+    jmp .done
+.create_new_chunk:
     call _malloc_chunk_create
     mov rax, [rax + _malloc_chunk_header.p_data]
     jmp .done

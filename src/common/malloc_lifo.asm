@@ -124,6 +124,41 @@ _malloc_lifo_find:
     pop rcx
     ret
 
+; find a chunk to fit requested data size.
+;
+; arguments:
+;     rdi : number of bytes requested.
+; returns:
+;     rax : pointer to found chunk, or 0 if not found.
+;
+_malloc_lifo_find_fit:
+    ; save clobbered registers.
+    push rcx
+    ; skip if there are no lifo entries.
+    cmp qword [_malloc_lifo_count], 0
+    je .return_null
+    ; iterate on rcx, start from most recent.
+    mov rcx, [_malloc_lifo_last_ptr]
+.loop:
+    ; fits?
+    cmp qword rdi, [rcx + _malloc_chunk_header.bytes]
+    jle .found
+    mov rcx, [rcx + _malloc_chunk_header.p_prev_free]
+    test rcx, rcx
+    jnz .loop
+.not_found:
+    xor rax, rax
+    jmp .done
+.found:
+    mov rax, rcx
+    jmp .done
+.return_null:
+    xor rax, rax
+.done:
+    ; restore clobbered registers.
+    pop rcx
+    ret
+
 ; remove a chunk from the lifo stack.
 ; 
 ; arguments:
