@@ -34,6 +34,8 @@ _malloc_lifo_add_chunk:
     mov qword [rdi + _malloc_chunk_header.p_prev_free], rcx
     mov qword [rdi + _malloc_chunk_header.p_next_free], 0
     inc qword [_malloc_lifo_count]
+    ; update last ptr
+    mov qword [_malloc_lifo_last_ptr], rdi
     ; do we need to update previous entry's next ptr?
     test rcx, rcx
     jz .skip_update_prev

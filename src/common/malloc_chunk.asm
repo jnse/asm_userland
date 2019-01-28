@@ -54,7 +54,7 @@ _malloc_chunk_create:
     ; populate fields.
     mov qword [rax + _malloc_chunk_header.bytes], rdi
     mov qword [rax + _malloc_chunk_header.p_data], rcx
-    mov byte [rax + _malloc_chunk_header.free], 0
+    mov qword [rax + _malloc_chunk_header.free], 0
     mov qword [rax + _malloc_chunk_header.p_next], 0
     mov qword [rax + _malloc_chunk_header.p_prev], 0
     mov qword [rax + _malloc_chunk_header.p_next_free], 0
@@ -75,8 +75,7 @@ _malloc_chunk_create:
     cmp qword [_malloc_chunk_first_ptr], 0
     jne .done
     mov [_malloc_chunk_first_ptr], rax
-    ; result = ptr to data.
-    mov qword rax, [rax + _malloc_chunk_header.p_data]
+    ; result = ptr to chunk.
     jmp .done
 .failed:
     xor rax, rax
@@ -137,6 +136,7 @@ _malloc_remove_chunk:
     jz .skip_stitch 
     mov qword [rcx + _malloc_chunk_header.p_prev], rdx
     mov qword [rdx + _malloc_chunk_header.p_next], rcx
+    jmp .skip_zero_next
 .skip_stitch:
     ; if there's a previous chunk, null it's next ptr.
     test rdx, rdx

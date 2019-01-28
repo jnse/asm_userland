@@ -27,6 +27,7 @@ _malloc_heap_init:
     ; init everything else.
     mov qword [_malloc_heap_size], 0
     mov qword [_malloc_heap_free], 0
+    ret
 
 ; _malloc_heap_grow : grows program heap.
 ;

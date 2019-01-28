@@ -40,57 +40,15 @@ SECTION .text
 
 ; Entry point -----------------------------------------------------------------
 
-debug_rsp:
-    push rdi
-    push rax
-    push rsi
-    mov rdi, str_rsp
-    call print
-    mov rdi, mystr
-    mov rsi, rsp
-    call itoa_hex
-    call println
-    pop rsi
-    pop rax
-    pop rdi
-    ret
-
-debug:
-    push rdi
-    push rax
-    push rsi
-    mov rdi, str_start
-    call print
-    mov rdi, mystr
-    mov rsi, [_malloc_heap_start]
-    call itoa_hex
-    call println
-    mov rdi, str_size
-    call print
-    mov rdi, mystr
-    mov rsi, [_malloc_heap_size]
-    call itoa_hex
-    call println
-    mov rdi, str_cursor
-    call print
-    mov rdi, mystr
-    mov rsi, [_malloc_mem_cursor]
-    call itoa_hex
-    call println
-    mov rdi, str_line
-    call println
-    pop rsi
-    pop rax
-    pop rdi
-    ret
-
 _start:
 
 %include "main.asm"
 
     call init_memory
-    mov rbx, 30000
+
+    mov rcx, 3000
 .main_loop:
+
     ; allocate a bunch of memory
     mov rdi, 20
     call malloc
@@ -114,10 +72,14 @@ _start:
     ; allocate something that could be reused
     mov rdi, 10
     call malloc
+
 .next:
     ; iterate
-    dec rbx
+    dec rcx
+    test rcx, rcx
     jnz .main_loop
+
+.done:
     ; exit 0
     xor rdi, rdi
     call exit

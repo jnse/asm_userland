@@ -58,6 +58,10 @@ _start:
 
     mov rdi, 30
     call malloc
+    push rax
+
+    mov rdi, 40
+    call malloc
 
     ; print the list of chunks before free'ing.
     call malloc_debug_chunks
@@ -69,6 +73,14 @@ _start:
     pop rax
     mov rdi, rax
     call free
+
+    pop rax
+    mov rdi, rax
+    call free
+
+    ; try to re-use a chunk.
+    mov rdi, 5
+    call malloc
 
     call malloc_debug_free_stack
     mov rdi, line
