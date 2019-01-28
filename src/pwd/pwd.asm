@@ -30,6 +30,7 @@ SECTION .text
 %include "exit.asm"
 %include "itoa.asm"
 %include "malloc.asm"
+%include "malloc_debug.asm"
 
 %define word_size 8 ; How many bytes in a qword
 
@@ -66,7 +67,7 @@ _start:
     call itoa_hex
     call println
 
-    call malloc_debug
+    call malloc_debug_chunks
     mov rdi, line
     call println
 
@@ -75,7 +76,7 @@ _start:
     mov rdi, rax
     call free
 
-    call malloc_debug
+    call malloc_debug_chunks
     mov rdi, line
     call println
 
@@ -83,7 +84,7 @@ _start:
     mov rdi, 100
     call malloc
 
-    call malloc_debug
+    call malloc_debug_chunks
     mov rdi, line
     call println
 
