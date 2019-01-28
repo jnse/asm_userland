@@ -46,7 +46,7 @@ _start:
 
     call init_memory
 
-    mov rcx, 3000
+    mov rcx, 30000
 .main_loop:
 
     ; allocate a bunch of memory
