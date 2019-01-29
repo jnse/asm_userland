@@ -43,7 +43,7 @@ sys	0m0.011s
 After implementing a lifo mechanism, the asm version of malloc is now fast enough
 for it to appear faster than glibc malloc only because the executable size is smaller
 (and thus the overhead for loading the elf executable is less).
-For this reason, future benchmark have upped the number of iterations by an order of 
+For this reason, for future benchmarks I have upped the number of iterations by an order of 
 magnitude.
 
 
