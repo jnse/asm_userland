@@ -182,6 +182,10 @@ _malloc_remove_chunk:
 _malloc_chunk_insert:
     ; save clobbered registers.
     push rdx
+    ; not free anymore.
+    mov qword [rdi + _malloc_chunk_header.free], 0
+    mov qword [rdi + _malloc_chunk_header.p_next_free], 0
+    mov qword [rdi + _malloc_chunk_header.p_prev_free], 0
     ; write prev ptr
     mov rdx, [_malloc_chunk_last_ptr]
     mov [rdi + _malloc_chunk_header.p_prev], rdx
@@ -189,7 +193,7 @@ _malloc_chunk_insert:
     cmp qword [_malloc_chunk_count], 0
     je .only_chunk
 .not_only_chunk:
-    mov [_malloc_chunk_last_ptr + _malloc_chunk_header.p_next], rdi
+    mov [rdx + _malloc_chunk_header.p_next], rdi
     mov [_malloc_chunk_last_ptr], rdi
     jmp .increment_chunk_count
 .only_chunk:

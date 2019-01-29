@@ -2,8 +2,9 @@
 add_executable(malloc_bench malloc/malloc_benchmark.asm)
 set_target_properties(malloc_bench PROPERTIES LINKER_LANGUAGE NASM)
 
-# target_compile_options(malloc_bench PUBLIC -Ox -I${CMAKE_SOURCE_DIR}/include/ -I${CMAKE_SOURCE_DIR}/src/common/)
-target_compile_options(malloc_bench PUBLIC -O0 -F dwarf -g -I${CMAKE_SOURCE_DIR}/include/ -I${CMAKE_SOURCE_DIR}/src/common/)
+target_compile_options(malloc_bench PUBLIC -Ox -I${CMAKE_SOURCE_DIR}/include/ -I${CMAKE_SOURCE_DIR}/src/common/)
+# target_compile_options(malloc_bench PUBLIC -O0 -F dwarf -g -I${CMAKE_SOURCE_DIR}/include/ -I${CMAKE_SOURCE_DIR}/src/common/)
+target_link_libraries(malloc_bench --strip-all)
 
 # non-zero optimization globs the smaller mallocs into a single larger one, 
 # which defeats the purpose of the test. Besides, we're benchmarking the

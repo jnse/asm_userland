@@ -62,6 +62,14 @@ _malloc_lifo_remove_entry:
     ; save clobbered registers.
     push rax
     push rdx
+    ; if there's only one entry left, we're it.
+    cmp qword [_malloc_lifo_count], 1
+    jne .not_only_entry
+.is_only_entry:
+    mov qword [_malloc_lifo_first_ptr], 0
+    mov qword [_malloc_lifo_last_ptr], 0
+    jmp .skip_zero_next
+.not_only_entry:
     ; if there's both a previous entry and a next entry
     ; stitch them togeather.
     mov qword rdx, [rdi + _malloc_chunk_header.p_prev_free]
