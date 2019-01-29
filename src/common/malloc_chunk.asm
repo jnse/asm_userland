@@ -174,4 +174,36 @@ _malloc_remove_chunk:
     pop rcx
     ret
 
+; insert a chunk in the lifo stack.
+;
+; arguments:
+;     rdi : pointer to chunk.
+;
+_malloc_chunk_insert:
+    ; save clobbered registers.
+    push rdx
+    ; not free anymore.
+    mov qword [rdi + _malloc_chunk_header.free], 0
+    mov qword [rdi + _malloc_chunk_header.p_next_free], 0
+    mov qword [rdi + _malloc_chunk_header.p_prev_free], 0
+    ; write prev ptr
+    mov rdx, [_malloc_chunk_last_ptr]
+    mov [rdi + _malloc_chunk_header.p_prev], rdx
+    ; if there's no chunks, we are first and last.
+    cmp qword [_malloc_chunk_count], 0
+    je .only_chunk
+.not_only_chunk:
+    mov [rdx + _malloc_chunk_header.p_next], rdi
+    mov [_malloc_chunk_last_ptr], rdi
+    jmp .increment_chunk_count
+.only_chunk:
+    mov [_malloc_chunk_first_ptr], rdi
+    mov [_malloc_chunk_last_ptr], rdi
+.increment_chunk_count:
+    inc qword [_malloc_chunk_count]
+.done:
+    ; restore clobbered registers.
+    pop rdx
+    ret
+
 %endif

@@ -4,7 +4,7 @@ int main(int argc, char** argv)
 {
     int* pa = 0;
     int* pb = 0;
-    for (int i = 30000 ; i != 0 ; --i)
+    for (int i = 300000 ; i != 0 ; --i)
     {
         pa = malloc(20);
         pb = malloc(45);

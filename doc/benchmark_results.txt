@@ -1,3 +1,4 @@
+30000 iterations: 
 
 ---------------------------------------
 - Baseline malloc test (glibc malloc) -
@@ -37,4 +38,28 @@ looking for free blocks if there are none.
 real	0m6.653s
 user	0m6.642s
 sys	0m0.011s
+
+
+After implementing a lifo mechanism, the asm version of malloc is now fast enough
+for it to appear faster than glibc malloc only because the executable size is smaller
+(and thus the overhead for loading the elf executable is less).
+For this reason, future benchmark have upped the number of iterations by an order of 
+magnitude.
+
+
+3000000 iterations:
+
+---------------------------------------
+- Baseline malloc test (glibc malloc) -
+---------------------------------------
+real	0m0.040s
+user	0m0.027s
+sys	0m0.012s
+
+---------------------------------------
+- asm_userland malloc                 -
+---------------------------------------
+real	0m0.045s
+user	0m0.023s
+sys	0m0.023s
 

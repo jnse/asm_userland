@@ -62,6 +62,14 @@ _malloc_lifo_remove_entry:
     ; save clobbered registers.
     push rax
     push rdx
+    ; if there's only one entry left, we're it.
+    cmp qword [_malloc_lifo_count], 1
+    jne .not_only_entry
+.is_only_entry:
+    mov qword [_malloc_lifo_first_ptr], 0
+    mov qword [_malloc_lifo_last_ptr], 0
+    jmp .skip_zero_next
+.not_only_entry:
     ; if there's both a previous entry and a next entry
     ; stitch them togeather.
     mov qword rdx, [rdi + _malloc_chunk_header.p_prev_free]
@@ -121,6 +129,41 @@ _malloc_lifo_find:
     mov rax, rcx
 .done:
     ; restore clobbered registers
+    pop rcx
+    ret
+
+; find a chunk to fit requested data size.
+;
+; arguments:
+;     rdi : number of bytes requested.
+; returns:
+;     rax : pointer to found chunk, or 0 if not found.
+;
+_malloc_lifo_find_fit:
+    ; save clobbered registers.
+    push rcx
+    ; skip if there are no lifo entries.
+    cmp qword [_malloc_lifo_count], 0
+    je .return_null
+    ; iterate on rcx, start from most recent.
+    mov rcx, [_malloc_lifo_last_ptr]
+.loop:
+    ; fits?
+    cmp qword rdi, [rcx + _malloc_chunk_header.bytes]
+    jle .found
+    mov rcx, [rcx + _malloc_chunk_header.p_prev_free]
+    test rcx, rcx
+    jnz .loop
+.not_found:
+    xor rax, rax
+    jmp .done
+.found:
+    mov rax, rcx
+    jmp .done
+.return_null:
+    xor rax, rax
+.done:
+    ; restore clobbered registers.
     pop rcx
     ret
 

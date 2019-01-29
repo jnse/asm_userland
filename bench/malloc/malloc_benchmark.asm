@@ -1,42 +1,13 @@
 
-;
-; =============================================================================
-;
-
-SECTION .data
-
-str_line   db "------------------------------------------------------", 0
-str_start  db "Heap start: ", 0
-str_size   db "Heap size : ", 0
-str_cursor db "Cursor    : ", 0
-str_iter   db 10, "=========================================================================", 10, 0
-str_rsp    db "RSP = ", 0
-
-;
-; =============================================================================
-;
-
-SECTION .bss
-
-mystr: resb 22
-
-;
-; =============================================================================
-;
-
 SECTION .text
 
     GLOBAL _start
 
 ; Included functions ----------------------------------------------------------
 
-%include "strlen.asm"
-%include "print.asm"
 %include "exit.asm"
 %include "itoa.asm"
 %include "malloc.asm"
-
-%define word_size 8 ; How many bytes in a qword
 
 ; Entry point -----------------------------------------------------------------
 
@@ -46,7 +17,7 @@ _start:
 
     call init_memory
 
-    mov rcx, 30000
+    mov rcx, 300000
 .main_loop:
 
     ; allocate a bunch of memory

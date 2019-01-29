@@ -68,8 +68,7 @@ _start:
     mov rdi, line
     call println
 
-    ; now free the middle chunk, the other two should
-    ; be stitched togeather in the linked list.
+    ; now free the middle 2 chunks
     pop rax
     mov rdi, rax
     call free
@@ -77,6 +76,16 @@ _start:
     pop rax
     mov rdi, rax
     call free
+
+    call malloc_debug_free_stack
+    mov rdi, line
+    call println
+
+    call malloc_debug_chunks
+    mov rdi, line
+    call println
+    mov rdi, line
+    call println
 
     ; try to re-use a chunk.
     mov rdi, 5
