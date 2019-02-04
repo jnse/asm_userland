@@ -26,9 +26,9 @@ SECTION .text
 
 jmp _start
 
-%include "strlen.asm"
-%include "print.asm"
-%include "exit.asm"
+%include "string/strlen.asm"
+%include "string/print.asm"
+%include "main/exit.asm"
 
 %define word_size 8 ; How many bytes in a qword
 

@@ -25,12 +25,12 @@ SECTION .text
 
 ; Included functions ----------------------------------------------------------
 
-%include "strlen.asm"
-%include "print.asm"
-%include "exit.asm"
-%include "itoa.asm"
-%include "malloc.asm"
-%include "malloc_debug.asm"
+%include "string/strlen.asm"
+%include "string/print.asm"
+%include "main/exit.asm"
+%include "string/itoa.asm"
+%include "malloc/malloc.asm"
+%include "malloc/malloc_debug.asm"
 
 %define word_size 8 ; How many bytes in a qword
 
@@ -38,7 +38,7 @@ SECTION .text
 
 _start:
 
-%include "main.asm"
+%include "main/main.asm"
 
     call init_memory
 

@@ -1,8 +1,8 @@
 %ifndef MALLOC_DEBUG_INCL
 %define MALLOC_DEBUG_INCL
 
-%include "malloc.asm" 
-%include "malloc_heap.asm"
+%include "malloc/malloc.asm" 
+%include "malloc/malloc_heap.asm"
 
 section .bss
 

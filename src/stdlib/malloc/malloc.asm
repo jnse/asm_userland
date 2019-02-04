@@ -25,9 +25,9 @@
 %ifndef MALLOC_INCL
 %define MALLOC_INCL
 
-%include "malloc_heap.asm"
-%include "malloc_chunk.asm"
-%include "malloc_lifo.asm"
+%include "malloc/malloc_heap.asm"
+%include "malloc/malloc_chunk.asm"
+%include "malloc/malloc_lifo.asm"
 
 SECTION .bss
 
@@ -47,7 +47,7 @@ SECTION .data
 SECTION .text
 
 %include "syscalls.asm"
-%include "print.asm"
+%include "string/print.asm"
 
 init_memory:
     call _malloc_heap_init

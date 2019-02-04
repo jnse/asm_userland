@@ -5,15 +5,15 @@ SECTION .text
 
 ; Included functions ----------------------------------------------------------
 
-%include "exit.asm"
-%include "itoa.asm"
-%include "malloc.asm"
+%include "main/exit.asm"
+%include "string/itoa.asm"
+%include "malloc/malloc.asm"
 
 ; Entry point -----------------------------------------------------------------
 
 _start:
 
-%include "main.asm"
+%include "main/main.asm"
 
     call init_memory
 

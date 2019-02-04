@@ -3,7 +3,7 @@
 
 %include "syscalls.asm"
 %include "file_descriptors.asm"
-%include "strlen.asm"
+%include "string/strlen.asm"
 
 SECTION .DATA
 

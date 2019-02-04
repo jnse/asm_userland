@@ -15,7 +15,7 @@ SECTION .bss
 
 SECTION .text
 
-%include "malloc.asm"
+%include "malloc/malloc.asm"
 
 ; This should typically be the first thing you call after _start.
 ; %include this after your _start
