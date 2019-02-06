@@ -17,6 +17,88 @@ _malloc_lifo_init:
     mov qword [_malloc_lifo_count], 0
     ret
 
+; stitches two (sequential) lifo entries into one large entry.
+;
+; arguments:
+;     rdi : pointer to first chunk.
+;     rsi : pointer to second chunk.
+;
+_malloc_lifo_stitch:
+    ; save clobbered registers.
+    push rax
+    ; recalculate size of first chunk.
+    mov qword rax, [rsi + _malloc_chunk_header.bytes]
+    add qword [rdi + _malloc_chunk_header.bytes], rax
+    add qword [rdi + _malloc_chunk_header.bytes], _malloc_chunk_header_size
+    ; second chunk's next chunk becomes first chunk's next chunk.
+    mov rax, [rsi + _malloc_chunk_header.p_next_free]
+    mov [rdi + _malloc_chunk_header.p_next_free], rax
+    ; make sure nothing points to the second chunk.
+    cmp rsi, [_malloc_lifo_last_ptr]
+    jne .skip_update_last
+    mov [_malloc_lifo_last_ptr], rdi
+.skip_update_last:
+    cmp rsi, [_malloc_lifo_first_ptr]
+    jne .skip_update_first
+    mov [_malloc_lifo_first_ptr], rdi
+.skip_update_first:
+    ; restore clobbered registers.
+    pop rax
+    ret
+
+; deletes a lifo entry and shrinks the heap, if the lifo entry is
+; located at the edge of heap memory.
+;
+; arguments:
+;     rdi : pointer to lifo entry.
+; 
+_malloc_lifo_delete_if_we_can:
+    ; save clobbered registers.
+    push rax;
+    ; check if we can actually go through with this.
+    mov rax, rdi
+    add rax, _malloc_chunk_header_size
+    add qword rax, [rdi + _malloc_chunk_header.bytes]
+    cmp rax, _malloc_heap_end
+    jne .done
+.delete_chunk
+    call _malloc_lifo_remove_entry
+    call _malloc_heap_set_end
+.done:
+    ; restore clobbered registers.
+    pop rax
+    ret
+
+; merges free chunks if they are adjacent.
+_malloc_lifo_defrag:
+    ; save clobbered registers.
+    push rcx
+    push rax
+    ; iterate on rcx
+    mov rcx, [_malloc_lifo_first_ptr]
+.check_entry:
+    ; done?
+    test rcx, rcx
+    jz .done
+    ; calculate current chunk's end in rax.
+    mov rax, [rcx + _malloc_chunk_header.bytes]
+    add rax, rcx
+    add rax, _malloc_chunk_header_size
+    ; if chunk end = pointer to next chunk, stitch.
+    cmp rax, [rcx + _malloc_chunk_header.p_next_free]
+    je .stitch
+    mov rcx, [rcx + _malloc_chunk_header.p_next_free]
+    jmp .check_entry
+.stitch:
+    mov rdi, rcx
+    mov rsi, rax
+    call _malloc_lifo_stitch
+.done:
+    ; restore clobbered registers.
+    pop rax
+    pop rcx
+    ret
+
 ; add a free chunk to the lifo stack.
 ;
 ; arguments:
@@ -49,6 +131,7 @@ _malloc_lifo_add_chunk:
 .failed:
     xor rax, rax
 .done:
+    call _malloc_lifo_defrag
     ; restore clobbered registers.
     pop rcx
     ret

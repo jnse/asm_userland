@@ -71,6 +71,11 @@ _malloc_heap_grow:
     pop rdi
     ret
 
+; _malloc_heap_set : sets the heap end address.
+_malloc_heap_set_end:
+    ; TODO
+    ret
+
 ; grows heap if needed for requested size.
 ;
 ; arguments:

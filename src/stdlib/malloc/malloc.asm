@@ -33,8 +33,6 @@ SECTION .bss
 
     _malloc_mem_cursor: resq 1      ; always points to the chunk at heap edge.
     _malloc_first: resb 1           ; first chunk flag
-    _malloc_last_free_cache: resq 1 ; Pointer to the last freed chunk.
-    _malloc_last_free_size: resq 1  ; Pointer tot he last freed chunk's size.
     _malloc_free_counter: resq 1    ; Counts number of available free chunks.
 
 SECTION .data
